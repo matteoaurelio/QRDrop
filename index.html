@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Drop - Get QR Link Instantly from a Photo</title>
+    <meta
+      name="description"
+      content="Can't scan a QR code? Upload the image and get the link instantly. No app install, no sign up, works on any device."
+    />
+    <style>
+      :root {
+        --color-primary: #5a6e5f;
+        --color-primary-hover: #4a5c4f;
+        --color-accent: #c49a5c;
+        --color-accent-hover: #b08845;
+        --color-bg: #faf8f5;
+        --color-surface: #f2efe9;
+        --color-border: #d4d0c8;
+        --color-text: #2c2825;
+        --color-text-muted: #8a847d;
+        --color-error: #c45240;
+        --color-error-bg: rgba(196, 82, 64, 0.08);
+        --color-error-border: rgba(196, 82, 64, 0.2);
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--color-bg);
+        color: var(--color-text);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      main {
+        max-width: 420px;
+        width: 100%;
+        padding: 3rem 1.5rem;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+        color: var(--color-primary);
+        letter-spacing: -0.02em;
+      }
+
+      main > p {
+        color: var(--color-primary);
+        margin-bottom: 3rem;
+        font-size: 0.95rem;
+      }
+
+      #drop-zone {
+        border: 2px dashed var(--color-border);
+        border-radius: 12px;
+        padding: 5rem 1.5rem;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+        position: relative;
+      }
+
+      #drop-zone.hover,
+      #drop-zone.dragging {
+        border-color: var(--color-accent);
+        background: rgba(196, 154, 92, 0.06);
+      }
+
+      #drop-zone p {
+        color: var(--color-text-muted);
+        font-size: 0.95rem;
+      }
+
+      #drop-zone .loading-text {
+        color: var(--color-accent);
+        font-size: 0.95rem;
+        animation: pulse 1.2 ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      #file-input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      #result {
+        margin-top: 2rem;
+        padding: 1.25rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        word-break: break-all;
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          opacity 0.3s ease,
+          max-height 0.3s ease,
+          padding 0.3s ease,
+          margin 0.3s ease;
+        padding: 0 1.25rem;
+        margin-top: 0;
+      }
+      #result.visible {
+        opacity: 1;
+        max-height: 200px;
+        padding: 1.25rem;
+        margin-top: 2rem;
+      }
+
+      #result-label {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      #result-link {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 1.05rem;
+        display: block;
+        margin-bottom: 1rem;
+      }
+
+      #result-link:hover {
+        text-decoration: underline;
+      }
+
+      #copy-btn {
+        background: var(--color-accent);
+        color: #fff;
+        border: none;
+        padding: 0.5rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      #copy-btn:hover {
+        background: var(--color-accent-hover);
+      }
+
+      #error {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: var(--color-error-bg);
+        border: 1px solid var(--color-error-border);
+        border-radius: 12px;
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          opacity 0.3s ease,
+          max-height 0.3s ease,
+          padding 0.3s ease,
+          margin 0.3s ease;
+        padding: 0 1rem;
+        margin-top: 0;
+      }
+
+      #error.visible {
+        opacity: 1;
+        max-height: 200px;
+        padding: 1rem;
+        margin-top: 2rem;
+      }
+
+      #error-msg {
+        color: var(--color-error);
+        font-size: 0.9rem;
+      }
+
+      footer {
+        position: fixed;
+        bottom: 1rem;
+        width: 100%;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
+
+      footer a {
+        color: var(--color-primary);
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        text-decoration: underline;
+      }
+
+      .coffee-link {
+        display: inline-block;
+        margin-top: 0.5rem;
+        color: var(--color-accent);
+        text-decoration: none;
+        font-size: 0.85rem;
+        padding: 0.3rem 0.8rem;
+        margin-left: 1.2rem;
+        border: 1px solid var(--color-accent);
+        border-radius: 6px;
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+
+      .coffee-link:hover {
+        background: var(--color-accent);
+        color: #fff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1>QR Drop</h1>
+      <p>
+        Can't scan a QR code? Upload the image. We'll extract the link for you.
+      </p>
+      <div id="drop-zone">
+        <p>Tap to upload or drag an image here</p>
+        <input type="file" id="file-input" accept="image/*" />
+      </div>
+
+      <div id="result">
+        <p id="result-label">Result:</p>
+        <a
+          id="result-link"
+          href=""
+          target="_blank"
+          rel="noopener noreferrer"
+        ></a>
+        <button id="copy-btn">Copy</button>
+      </div>
+
+      <div id="error">
+        <p id="error-msg"></p>
+      </div>
+    </main>
+    <footer>
+      Built by
+      <a
+        href="https://www.linkedin.com/in/matteoaurelioarellano/"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Matteo Aurelio Arellano</a
+      >
+      <a
+        href="https://buymeacoffee.com/matteoaurelioarellano"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="coffee-link"
+      >
+        Buy me a coffee</a
+      >
+    </footer>
+    <div id="qr-temp" hidden></div>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+      const dropZone = document.getElementById("drop-zone");
+      const fileInput = document.getElementById("file-input");
+      const resultDiv = document.getElementById("result");
+      const resultLink = document.getElementById("result-link");
+      const copyBtn = document.getElementById("copy-btn");
+      const errorDiv = document.getElementById("error");
+      const errorMsg = document.getElementById("error-msg");
+
+      function showResult(decodedText) {
+        errorDiv.classList.remove("visible");
+        resultDiv.classList.add("visible");
+
+        resultLink.textContent = decodedText;
+
+        // Check if it's a URL - if so, make it clickable
+        try {
+          new URL(decodedText);
+          resultLink.href = decodedText;
+          resultLink.style.pointerEvents = "auto";
+        } catch {
+          // Not a URL, just show as plain text
+          resultLink.removeAttribute("href");
+          resultLink.style.pointerEvents = "none";
+        }
+      }
+
+      function showError(message) {
+        resultDiv.classList.remove("visible");
+        errorDiv.classList.add("visible");
+        errorMsg.textContent = message;
+      }
+
+      function decodeImage(file) {
+        if (!file.type.startsWith("image/")) {
+          showError("That does not look like an image file.");
+          return;
+        }
+
+        // Validate: reject files over 10MB
+        if (file.size > 10 * 1024 * 1024) {
+          showError("Image is too large. Please use a file under 10MB.");
+          return;
+        }
+
+        resultDiv.classList.remove("visible");
+        errorDiv.classList.remove("visible");
+
+        // Show loading state
+        const dropText = dropZone.querySelector("p");
+        const originalText = dropText.textContent;
+        dropText.textContent = "Decoding...";
+        dropText.classList.add("loading-text");
+
+        const html5QrCode = new Html5Qrcode("qr-temp");
+
+        html5QrCode
+          .scanFile(file, false)
+          .then((decodedText) => {
+            showResult(decodedText);
+          })
+          .catch(() => {
+            showError("No QR code found. Try a clearer photo.");
+          })
+          .finally(() => {
+            dropText.textContent = originalText;
+            dropText.classList.remove("loading-text");
+          });
+      }
+
+      // Handle file input change
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) decodeImage(file);
+      });
+
+      // Handle drag & drop visual feedback
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragging");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("dragging");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragging");
+        const file = e.dataTransfer.files[0];
+        if (file) decodeImage(file);
+      });
+
+      // Handle copy button
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(resultLink.textContent).then(() => {
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => {
+            copyBtn.textContent = "Copy";
+          }, 2000);
+        });
+      });
+    </script>
+  </body>
+</html>
